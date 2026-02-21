@@ -1,10 +1,14 @@
 from django.contrib import admin
-from django.urls import path
 from django.http import HttpResponse
 from django.http import JsonResponse
+from django.urls import include, path
+
 
 def hello_world(request):
-    return HttpResponse("Hello, world! This is our interneers-lab Django server.    Kanishk here.")
+    return HttpResponse(
+        "Hello, world! This is our interneers-lab Django server. Kanishk here."
+    )
+
 
 def hello_name(request):
     """
@@ -15,7 +19,9 @@ def hello_name(request):
     name = request.GET.get("name", "World")
     return JsonResponse({"message": f"Hello, {name}!"})
 
+
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('hello/', hello_name),
+    path("admin/", admin.site.urls),
+    path("hello/", hello_name),
+    path("products/", include("products.urls")),
 ]
