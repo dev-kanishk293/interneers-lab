@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -27,6 +28,22 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
+MONGO_DB_NAME = os.getenv("MONGO_DB_NAME", "interneers_lab")
+MONGO_HOST = os.getenv("MONGO_HOST", "localhost")
+MONGO_PORT = int(os.getenv("MONGO_PORT", "27019"))
+MONGO_USERNAME = os.getenv("MONGO_USERNAME", "root")
+MONGO_PASSWORD = os.getenv("MONGO_PASSWORD", "example")
+MONGO_AUTH_SOURCE = os.getenv("MONGO_AUTH_SOURCE", "admin")
+
+MONGODB_SETTINGS = {
+    "db": MONGO_DB_NAME,
+    "host": MONGO_HOST,
+    "port": MONGO_PORT,
+    "username": MONGO_USERNAME,
+    "password": MONGO_PASSWORD,
+    "authentication_source": MONGO_AUTH_SOURCE,
+}
+
 
 # Application definition
 
@@ -38,7 +55,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
-    "products",
+    "products.apps.ProductsConfig",
 ]
 
 MIDDLEWARE = [

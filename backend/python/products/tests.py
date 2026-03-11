@@ -1,12 +1,12 @@
 from django.test import TestCase
 from rest_framework.test import APIClient
 
-from .store import clear_store
+from .repositories import ProductRepository
 
 
 class ProductApiTests(TestCase):
     def setUp(self):
-        clear_store()
+        ProductRepository().clear_all()
         self.client = APIClient()
 
     def test_create_product(self):
