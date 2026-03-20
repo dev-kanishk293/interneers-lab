@@ -3,6 +3,8 @@ from django.conf import settings
 from mongoengine import connect
 from mongoengine.connection import get_connection
 
+from .seeds import seed_product_categories
+
 
 class ProductsConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
@@ -16,3 +18,6 @@ class ProductsConfig(AppConfig):
             pass
 
         connect(alias="default", **settings.MONGODB_SETTINGS)
+
+        if getattr(settings, "ENABLE_CATEGORY_SEEDING", True):
+            seed_product_categories()

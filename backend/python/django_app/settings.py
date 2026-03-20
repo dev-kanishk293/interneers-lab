@@ -43,6 +43,7 @@ MONGODB_SETTINGS = {
     "password": MONGO_PASSWORD,
     "authentication_source": MONGO_AUTH_SOURCE,
 }
+ENABLE_CATEGORY_SEEDING = os.getenv("ENABLE_CATEGORY_SEEDING", "true").lower() == "true"
 
 
 # Application definition
