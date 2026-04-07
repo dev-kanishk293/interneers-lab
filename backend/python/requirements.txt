@@ -2,3 +2,8 @@ Django==6.0.2
 djangorestframework==3.16.1
 mongoengine==0.29.1
 pymongo==4.16.0
+openai
+pydantic
+python-dotenv
+streamlit
+google-genai
