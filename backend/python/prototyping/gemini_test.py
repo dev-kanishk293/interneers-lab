@@ -11,23 +11,34 @@ client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 def test_generation(prompt, temp):
     print(f"\n--- Testing with temperature: {temp} ---")
     
-    # Gemini 2.0 Flash is recommended for new projects
+    # Gemini 2.5 Flash is recommended for new projects
     # Config includes temperature and other generation parameters
     response = client.models.generate_content(
-        model="gemini-2.0-flash",
+        model="gemini-2.5-flash-lite",
         contents=prompt,
         config={"temperature": temp}
     )
     
     # Token count is available with a dedicated call
     token_count = client.models.count_tokens(
-        model="gemini-2.0-flash",
+        model="gemini-2.5-flash-lite",
         contents=prompt
     )
     print(f"Prompt token count: {token_count.total_tokens}")
     
     print(f"Response:\n{response.text}")
+    
+    # Calculate token usage
+    response_token_count = client.models.count_tokens(
+        model="gemini-2.5-flash-lite",
+        contents=response.text
+    )
+    total_tokens = token_count.total_tokens + response_token_count.total_tokens
+    
     print(f"\nUsage Stats (Estimated for Gemini Flash Free Tier):")
+    print(f"Input tokens: {token_count.total_tokens}")
+    print(f"Output tokens: {response_token_count.total_tokens}")
+    print(f"Total tokens: {total_tokens}")
     print(f"Cost: $0.00 (Free Tier)")
     
     return response.text

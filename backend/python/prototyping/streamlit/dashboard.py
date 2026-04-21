@@ -1,17 +1,153 @@
+import json
 import os
 import sys
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 import streamlit as st
 from mongoengine import connect, disconnect
+from pydantic import ValidationError
 
+try:
+    from dotenv import load_dotenv
+except ModuleNotFoundError:
+    load_dotenv = None  # type: ignore[assignment]
+
+try:
+    from google import genai
+    from google.genai import types
+except Exception:
+    genai = None  # type: ignore[assignment]
+    types = None  # type: ignore[assignment]
 
 PROJECT_BACKEND_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_BACKEND_ROOT))
 
 from products.models import ProductDocument  # noqa: E402
+from products.validators import ProductListValidator  # noqa: E402
+from products.semantic_search import SemanticSearchIndex, keyword_search  # noqa: E402
+
+def _find_repo_root(start: Path) -> Path:
+    for candidate in [start, *start.parents]:
+        if (candidate / ".git").exists():
+            return candidate
+    return start
+
+
+if load_dotenv is not None:
+    load_dotenv(dotenv_path=_find_repo_root(Path(__file__).resolve()) / ".env")
+else:
+    st.warning("`python-dotenv` is not installed; skipping .env loading.")
+
+SCENARIO_DEFINITIONS: Dict[str, Dict[str, Any]] = {
+    "Holiday Rush": {
+        "description": "Toy and gift buying spikes. Fill shelves with premium, family-focused items and keep stock levels high.",
+        "count": 5,
+        "stock_min": 60,
+        "stock_max": 120,
+    },
+    "Back to School": {
+        "description": "Students and parents stock up on stationery, backpacks, and study helpers with reliable quantities.",
+        "count": 4,
+        "stock_min": 40,
+        "stock_max": 80,
+    },
+    "Flash Sale": {
+        "description": "Limited-time promotions drive demand for gadgets, so keep trendy gear in larger than normal quantities.",
+        "count": 3,
+        "stock_min": 30,
+        "stock_max": 70,
+    },
+}
+
+
+def _build_scenario_prompt(name: str, config: Dict[str, Any]) -> str:
+    return f"""
+You are a retail supply chain analyst generating synthetic inventory data for the {name} scenario.
+Produce exactly {config['count']} products. Each product must include:
+- name: short descriptive string
+- description: narrative <= 300 characters
+- category: single string
+- price: float between 5.00 and 500.00
+- brand: optional string
+- quantity: integer between {config['stock_min']} and {config['stock_max']}
+- category_ids: list of integers (can be empty)
+
+Respond with strictly valid JSON and nothing else. The top-level object must be {{ "products": [ ... ] }}.
+{config['description']}
+    """
+
+
+def _request_scenarios_from_gemini(config: Dict[str, Any], scenario_name: str) -> List[Dict[str, Any]]:
+    if genai is None or types is None:
+        raise EnvironmentError(
+            "`google-genai` is not installed; install dependencies with: "
+            "pip install -r backend/python/requirements.txt"
+        )
+
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        raise EnvironmentError("GEMINI_API_KEY missing; set it in your environment or .env file.")
+
+    prompt = _build_scenario_prompt(scenario_name, config)
+    client = genai.Client(api_key=api_key)
+
+    request_config = types.GenerateContentConfig(
+        response_mime_type="application/json",
+        temperature=0.2,
+        # safety_settings=[
+        #     types.SafetySetting(
+        #         category="HARM_CATEGORY_UNSPECIFIED",
+        #         threshold="BLOCK_NONE",
+        #     )
+        # ],
+    )
+
+    response = client.models.generate_content(
+        model="gemini-2.5-flash-lite",
+        contents=prompt,
+        config=request_config,
+    )
+
+    payload = json.loads(response.text)
+    validated = ProductListValidator(**payload)
+    limited_products = []
+    for product in validated.products[: config["count"]]:
+        record = product.model_dump()
+        record["quantity"] = max(
+            config["stock_min"], min(int(record["quantity"]), config["stock_max"])
+        )
+        record["price"] = float(record["price"])
+        record["category_ids"] = record.get("category_ids") or []
+        limited_products.append(record)
+
+    if not limited_products:
+        raise ValueError("Gemini returned no products.")
+
+    return limited_products
+
+
+def populate_scenario_inventory(name: str) -> Tuple[int, str]:
+    config = SCENARIO_DEFINITIONS[name]
+    try:
+        products = _request_scenarios_from_gemini(config, name)
+    except EnvironmentError as err:
+        return 0, str(err)
+    except ValidationError as err:
+        return 0, err.json()
+    except Exception as err:
+        return 0, f"Failed to generate scenario data: {err}"
+
+    connect(alias="default", **_mongo_settings())
+    try:
+        saved = 0
+        for payload in products:
+            ProductDocument(**payload).save()
+            saved += 1
+        return saved, ""
+    finally:
+        disconnect(alias="default")
 
 
 def _mongo_settings() -> Dict[str, Any]:
@@ -142,19 +278,23 @@ def main() -> None:
     st.sidebar.subheader("AI Scenarios")
     scenario = st.sidebar.selectbox(
         "Select Scenario",
-        options=["None", "Holiday Rush", "Back to School", "Flash Sale"],
+        options=["None"] + list(SCENARIO_DEFINITIONS.keys()),
         help="Simulate market scenarios by populating synthetic data."
     )
-    
+
     if scenario != "None":
         if st.sidebar.button(f"Generate {scenario} Data"):
             with st.spinner(f"AI is simulating {scenario}..."):
-                # This would call the scenario logic
-                # For demonstration, we'll use a local function or trigger a script
-                st.sidebar.info(f"Triggering {scenario} data generation...")
-                # Note: Integration with the product_gen logic should go here.
-                # Since we identified a quota issue, we'll show the UI integration.
-                st.sidebar.success(f"{scenario} scenario populated (simulated)!")
+                saved, msg = populate_scenario_inventory(scenario)
+                if saved:
+                    st.sidebar.success(
+                        f"{scenario} scenario populated with {saved} synthetic products."
+                    )
+                    # st.experimental_rerun()
+                else:
+                    st.sidebar.error(
+                        msg or f"{scenario} generation failed. Check logs for details."
+                    )
     
     stock_alert_threshold = st.sidebar.number_input(
         "Stock Alert Threshold",
@@ -170,15 +310,65 @@ def main() -> None:
             item for item in inventory if item.get("category") == selected_category
         ]
 
+    search_left, search_right = st.columns(2)
+    with search_left:
+        keyword_query = st.text_input(
+            "Keyword Search",
+            placeholder="e.g., lego, blocks, stroller",
+        )
+    with search_right:
+        semantic_query = st.text_input(
+            "Semantic Search",
+            placeholder='e.g., "construction toys", "gifts for toddlers"',
+        )
+
+    keyword_filtered_inventory = keyword_search(filtered_inventory, keyword_query)
+    display_inventory: List[Dict[str, Any]] = keyword_filtered_inventory
+
+    if semantic_query.strip():
+        try:
+            index_products = [
+                {
+                    "id": item.get("id"),
+                    "name": item.get("name"),
+                    "description": item.get("description"),
+                    "category": item.get("category"),
+                    "brand": item.get("brand"),
+                    "price": item.get("price"),
+                    "quantity": item.get("quantity"),
+                    "category_ids": item.get("category_ids"),
+                }
+                for item in keyword_filtered_inventory
+            ]
+            index = SemanticSearchIndex(index_products, model_name="all-MiniLM-L6-v2")
+            results = index.search(
+                semantic_query,
+                top_k=min(25, len(index_products)) if index_products else 25,
+                min_score=0.25,
+            )
+            # print(f"[semantic-search] query={semantic_query!r} results={len(results)}")
+            display_inventory = []
+            for result in results:
+                enriched = dict(result.product)
+                enriched["semantic_score"] = round(result.score, 4)
+                display_inventory.append(enriched)
+                # product_id = enriched.get("id")
+                # name = enriched.get("name")
+                # print(f"[semantic-search] score={result.score:.6f} id={product_id!r} name={name!r}")
+        except ImportError as exc:
+            st.warning(str(exc))
+        except Exception as exc:
+            st.error(f"Semantic search failed: {exc}")
+
     st.dataframe(
-        filtered_inventory,
+        display_inventory,
         use_container_width=True,
         hide_index=True,
     )
 
     low_stock_items = [
         item
-        for item in filtered_inventory
+        for item in display_inventory
         if int(item.get("quantity", 0)) < int(stock_alert_threshold)
     ]
     if low_stock_items:
@@ -194,7 +384,7 @@ def main() -> None:
     else:
         st.success("Stock Alert: No low-stock items for the selected threshold.")
 
-    st.metric("Filtered Products", len(filtered_inventory))
+    st.metric("Displayed Products", len(display_inventory))
     st.caption(f"Total products in inventory: {len(inventory)}")
 
 
