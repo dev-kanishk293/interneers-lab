@@ -43,7 +43,7 @@ def generate_products_gemini(count=50):
     try:
         # Requesting JSON output through the new config
         response = client.models.generate_content(
-            model="gemini-2.0-flash",
+            model="gemini-2.5-flash-lite",
             contents=prompt,
             config={"response_mime_type": "application/json"}
         )
