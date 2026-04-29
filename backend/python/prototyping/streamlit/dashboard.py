@@ -27,6 +27,7 @@ if str(PROJECT_BACKEND_ROOT) not in sys.path:
 from products.models import ProductDocument  # noqa: E402
 from products.validators import ProductListValidator  # noqa: E402
 from products.semantic_search import SemanticSearchIndex, keyword_search  # noqa: E402
+from products.rag import ask_the_expert, load_sample_documents  # noqa: E402
 
 def _find_repo_root(start: Path) -> Path:
     for candidate in [start, *start.parents]:
@@ -192,10 +193,64 @@ def remove_product_by_id(product_id: int) -> bool:
         disconnect(alias="default")
 
 
+def render_ask_the_expert() -> None:
+    with st.expander("Ask the Expert", expanded=True):
+        docs = load_sample_documents()
+        doc_names = ", ".join(document["source"] for document in docs)
+        st.caption(f"Knowledge base: {doc_names or 'No text files found in public/'}")
+
+        if "expert_messages" not in st.session_state:
+            st.session_state.expert_messages = [
+                {
+                    "role": "assistant",
+                    "content": "Ask about the product manual, return policy, or vendor FAQ.",
+                }
+            ]
+
+        for message in st.session_state.expert_messages:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
+
+        question = st.chat_input(
+            "Ask the expert...",
+            key="ask_the_expert_input",
+        )
+        if question:
+            st.session_state.expert_messages.append(
+                {"role": "user", "content": question}
+            )
+            with st.chat_message("user"):
+                st.markdown(question)
+
+            with st.chat_message("assistant"):
+                with st.spinner("Searching uploaded documents..."):
+                    try:
+                        result = ask_the_expert(question, top_k=3)
+                        st.markdown(result["answer"])
+                        if result["sources"]:
+                            source_text = ", ".join(
+                                f"{source['source']} ({source['score']})"
+                                for source in result["sources"]
+                            )
+                            st.caption(f"Sources: {source_text}")
+                    except Exception as exc:
+                        result = {
+                            "answer": f"Ask the Expert failed: {exc}",
+                            "sources": [],
+                        }
+                        st.error(result["answer"])
+
+            st.session_state.expert_messages.append(
+                {"role": "assistant", "content": result["answer"]}
+            )
+
+
 def main() -> None:
     st.set_page_config(page_title="Inventory Dashboard", layout="wide")
     st.title("Inventory Dashboard")
     st.caption("Current inventory from MongoDB")
+
+    render_ask_the_expert()
 
     with st.expander("Add Product", expanded=True):
         with st.form("add_product_form"):
@@ -346,15 +401,12 @@ def main() -> None:
                 top_k=min(25, len(index_products)) if index_products else 25,
                 min_score=0.25,
             )
-            # print(f"[semantic-search] query={semantic_query!r} results={len(results)}")
+            
             display_inventory = []
             for result in results:
                 enriched = dict(result.product)
                 enriched["semantic_score"] = round(result.score, 4)
                 display_inventory.append(enriched)
-                # product_id = enriched.get("id")
-                # name = enriched.get("name")
-                # print(f"[semantic-search] score={result.score:.6f} id={product_id!r} name={name!r}")
         except ImportError as exc:
             st.warning(str(exc))
         except Exception as exc:

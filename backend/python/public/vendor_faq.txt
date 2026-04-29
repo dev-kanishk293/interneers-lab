@@ -1,0 +1,47 @@
+VENDOR FAQ
+
+This document provides answers to frequently asked questions for vendors selling on our platform.
+
+1. PAYMENT PROCESS
+Vendors receive payments within 5 business days after order delivery confirmation.
+Payments are transferred directly to the registered bank account.
+
+2. COMMISSION STRUCTURE
+A standard commission fee is deducted from each sale. The percentage varies depending on product category.
+
+3. SHIPPING RESPONSIBILITY
+Vendors are responsible for packaging and shipping their products.
+All shipments must be completed within the promised delivery timeline.
+
+4. ORDER MANAGEMENT
+Vendors can manage orders through the vendor dashboard:
+- Accept or reject orders
+- Update shipping status
+- Track deliveries
+
+5. RETURNS HANDLING
+- Vendors must accept returns for eligible products.
+- Returned items will be inspected before refund processing.
+- Vendors may be responsible for return shipping costs in certain cases.
+
+6. PRODUCT LISTING GUIDELINES
+- Provide accurate descriptions and images.
+- Avoid misleading or false claims.
+- Ensure compliance with platform policies.
+
+7. ACCOUNT SUSPENSION
+Vendor accounts may be suspended for:
+- Repeated order cancellations
+- Poor customer ratings
+- Violation of policies
+
+8. CUSTOMER COMMUNICATION
+Vendors are expected to:
+- Respond to customer queries within 24 hours
+- Maintain professional communication
+- Resolve disputes promptly
+
+9. SUPPORT
+For vendor support, contact the vendor helpdesk via the dashboard.
+
+We aim to create a reliable and transparent marketplace for all vendors.
