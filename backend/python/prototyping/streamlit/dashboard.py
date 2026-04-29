@@ -328,29 +328,6 @@ def main() -> None:
         options=["All"] + categories,
         index=0,
     )
-    
-    st.sidebar.divider()
-    st.sidebar.subheader("AI Scenarios")
-    scenario = st.sidebar.selectbox(
-        "Select Scenario",
-        options=["None"] + list(SCENARIO_DEFINITIONS.keys()),
-        help="Simulate market scenarios by populating synthetic data."
-    )
-
-    if scenario != "None":
-        if st.sidebar.button(f"Generate {scenario} Data"):
-            with st.spinner(f"AI is simulating {scenario}..."):
-                saved, msg = populate_scenario_inventory(scenario)
-                if saved:
-                    st.sidebar.success(
-                        f"{scenario} scenario populated with {saved} synthetic products."
-                    )
-                    # st.experimental_rerun()
-                else:
-                    st.sidebar.error(
-                        msg or f"{scenario} generation failed. Check logs for details."
-                    )
-    
     stock_alert_threshold = st.sidebar.number_input(
         "Stock Alert Threshold",
         min_value=0,
