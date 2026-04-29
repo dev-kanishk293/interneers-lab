@@ -7,3 +7,9 @@ pydantic
 python-dotenv
 streamlit
 google-genai
+numpy
+sentence-transformers
+chromadb
+langchain
+langchain-text-splitters
+langsmith

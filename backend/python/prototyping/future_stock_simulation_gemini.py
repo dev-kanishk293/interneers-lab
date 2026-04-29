@@ -21,11 +21,11 @@ def generate_future_stock_events_gemini():
     Return the result as a strictly valid JSON object with a single key 'events' which is a list of strings.
     """
     
-    print("Requesting future stock events from Gemini 2.0 Flash...")
+    print("Requesting future stock events from Gemini 2.5 Flash...")
     
     try:
         response = client.models.generate_content(
-            model="gemini-2.0-flash",
+            model="gemini-2.5-flash-lite",
             contents=prompt,
             config={"response_mime_type": "application/json"}
         )
@@ -35,7 +35,7 @@ def generate_future_stock_events_gemini():
         
         events = data.get("events", [])
         
-        print(f"\n--- Generated {len(events)} Future Stock Events (via Gemini 2.0) ---")
+        print(f"\n--- Generated {len(events)} Future Stock Events (via Gemini 2.5) ---")
         for i, event in enumerate(events, 1):
             print(f"{i}. {event}")
             print(f"   [Audit Log]: Simulated log for: {event[:30]}...")
